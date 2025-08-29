@@ -43,7 +43,34 @@ export const createChatCompletions = async (
     return events(response)
   }
 
-  return (await response.json()) as ChatCompletionResponse
+  const rawResponse = (await response.json()) as any; // Use 'any' for initial parsing
+  
+  // Ensure top-level "object": "chat.completion"
+  if (rawResponse.object !== "chat.completion") {
+    rawResponse.object = "chat.completion";
+  }
+
+  // Ensure each choice has a message object with role and content
+  if (rawResponse.choices && Array.isArray(rawResponse.choices)) {
+    rawResponse.choices = rawResponse.choices.map((choice: any) => {
+      if (!choice.message) {
+        choice.message = {
+          role: "assistant",
+          content: choice.content || "", // Assuming 'content' might be directly on choice if message is missing
+        };
+      } else {
+        if (!choice.message.role) {
+          choice.message.role = "assistant";
+        }
+        if (choice.message.content === undefined || choice.message.content === null) {
+          choice.message.content = "";
+        }
+      }
+      return choice;
+    });
+  }
+
+  return rawResponse as ChatCompletionResponse;
 }
 
 // Streaming types
